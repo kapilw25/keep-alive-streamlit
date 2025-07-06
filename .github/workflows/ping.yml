@@ -9,5 +9,34 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
       - name: Curl your Streamlit app
-        run: curl https://text2image-bykapil.streamlit.app/
+        id: ping_app
+        run: |
+          echo "Pinging app at: $(date -u)"
+          if curl -I --fail --max-time 30 https://text2image-bykapil.streamlit.app/; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "✅ App is responding normally"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ App ping failed"
+            exit 1
+          fi
+          
+      - name: Log status to file
+        if: always()
+        run: |
+          mkdir -p logs
+          echo "$(date -u): ${{ steps.ping_app.outputs.status }}" >> logs/ping_history.log
+          echo "Latest ping status logged"
+          
+      - name: Commit and push logs
+        if: always()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add logs/
+          git diff --staged --quiet || git commit -m "Update ping logs - $(date -u)"
+          git push || echo "No changes to push"
